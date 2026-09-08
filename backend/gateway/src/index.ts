@@ -2,17 +2,23 @@ import "dotenv/config";
 import express from "express";
 import httpProxy from "express-http-proxy";
 import type { Request } from "express";
+import { corsDev } from "@ecommerce/shared";
 import { requireAuth } from "./middleware/auth.js";
 
 const app = express();
+
+app.use(corsDev);
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL ?? "http://localhost:3001";
 const PRODUCTS_SERVICE_URL = process.env.PRODUCTS_SERVICE_URL ?? "http://localhost:3002";
 const ORDERS_SERVICE_URL = process.env.ORDERS_SERVICE_URL ?? "http://localhost:3003";
 const PAYMENTS_SERVICE_URL = process.env.PAYMENTS_SERVICE_URL ?? "http://localhost:3004";
 
-const proxy = (serviceUrl: string) =>
+const proxy = (serviceUrl: string, prefix = "") =>
   httpProxy(serviceUrl, {
+    // Express strips the mount path (e.g. "/api/auth") from req.url before
+    // this runs, so re-attach the downstream prefix (e.g. "/auth/register").
+    proxyReqPathResolver: (req) => `${prefix}${req.url}`,
     proxyReqOptDecorator: (proxyReqOpts, srcReq) => {
       const user = (srcReq as Request).user;
       if (user && proxyReqOpts.headers) {
@@ -29,7 +35,7 @@ app.get("/health", (_req, res) => {
 });
 
 // public
-app.use("/api/auth", proxy(AUTH_SERVICE_URL));
+app.use("/api/auth", proxy(AUTH_SERVICE_URL, "/auth"));
 
 // protected
 app.use("/api/products", requireAuth, proxy(PRODUCTS_SERVICE_URL));

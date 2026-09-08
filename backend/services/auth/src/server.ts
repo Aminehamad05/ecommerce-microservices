@@ -1,9 +1,10 @@
 import "dotenv/config";
 import express from "express";
-import { errorHandler } from "@ecommerce/shared";
+import { corsDev, errorHandler } from "@ecommerce/shared";
 import { authRouter } from "./routes/auth.routes.js";
 
 const app = express();
+app.use(corsDev);
 app.use(express.json());
 
 app.get("/health", (_req, res) => {

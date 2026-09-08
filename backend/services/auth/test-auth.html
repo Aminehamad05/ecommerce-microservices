@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Auth Service Test</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    fieldset { margin-bottom: 1rem; }
+    label { display: block; margin: 0.5rem 0; }
+    input { width: 100%; padding: 0.4rem; box-sizing: border-box; }
+    button { padding: 0.4rem 0.8rem; margin-right: 0.5rem; cursor: pointer; }
+    pre { background: #f4f4f4; padding: 1rem; white-space: pre-wrap; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h1>Auth Service Test</h1>
+
+  <fieldset>
+    <legend>Settings</legend>
+    <label>Base URL
+      <input id="baseUrl" value="http://localhost:3001/auth" />
+    </label>
+    <small>Direct: <code>http://localhost:3001/auth</code> · Via gateway: <code>http://localhost:3000/api/auth</code></small>
+  </fieldset>
+
+  <fieldset>
+    <legend>Credentials</legend>
+    <label>Email <input id="email" type="email" value="test@example.com" /></label>
+    <label>Password <input id="password" type="password" value="password123" /></label>
+    <small>Password must be ≥ 8 characters.</small>
+  </fieldset>
+
+  <div>
+    <button id="btnHealth">Health</button>
+    <button id="btnRegister">Register</button>
+    <button id="btnLogin">Login</button>
+    <button id="btnClear">Clear</button>
+  </div>
+
+  <h2>Result</h2>
+  <pre id="out">—</pre>
+
+  <h2>Saved JWT</h2>
+  <pre id="token">—</pre>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const out = $("out");
+    const tokenEl = $("token");
+    let token = "";
+
+    function base() {
+      return $("baseUrl").value.replace(/\/+$/, "");
+    }
+
+    async function call(path, options) {
+      const url = path.startsWith("http") ? path : base() + path;
+      out.textContent = `${options?.method || "GET"} ${url}\n…`;
+      try {
+        const res = await fetch(url, options);
+        const text = await res.text();
+        let body;
+        try { body = JSON.parse(text); } catch { body = text; }
+        if (body && body.token) {
+          token = body.token;
+          tokenEl.textContent = token;
+        }
+        out.textContent = `Status: ${res.status}\n` + JSON.stringify(body, null, 2);
+      } catch (err) {
+        out.textContent = "Fetch failed (is the service running? CORS enabled?):\n" + err;
+      }
+    }
+
+    function credentials() {
+      return JSON.stringify({
+        email: $("email").value.trim(),
+        password: $("password").value,
+      });
+    }
+
+    const jsonHeaders = () => ({ "Content-Type": "application/json" });
+
+    $("btnHealth").onclick = () => {
+      // /health lives at the service root, so strip the trailing /auth or /api/auth
+      const root = base().replace(/\/(api\/)?auth$/, "") || base();
+      call(root + "/health", { method: "GET" });
+    };
+    $("btnRegister").onclick = () =>
+      call("/register", { method: "POST", headers: jsonHeaders(), body: credentials() });
+    $("btnLogin").onclick = () =>
+      call("/login", { method: "POST", headers: jsonHeaders(), body: credentials() });
+    $("btnClear").onclick = () => {
+      token = "";
+      tokenEl.textContent = "—";
+      out.textContent = "—";
+    };
+  </script>
+</body>
+</html>
