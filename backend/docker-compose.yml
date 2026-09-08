@@ -2,8 +2,8 @@ services:
   postgres-auth:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: auth_user
-      POSTGRES_PASSWORD: auth_pass
+      POSTGRES_USER: ${AUTH_DB_USER:-auth_user}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-auth_pass}
       POSTGRES_DB: auth_db
     ports:
       - "5433:5432"
