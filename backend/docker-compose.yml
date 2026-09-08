@@ -1,0 +1,61 @@
+services:
+  postgres-auth:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+      POSTGRES_DB: auth_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - auth_data:/var/lib/postgresql/data
+
+  postgres-products:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: products_user
+      POSTGRES_PASSWORD: products_pass
+      POSTGRES_DB: products_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - products_data:/var/lib/postgresql/data
+
+  postgres-orders:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: orders_user
+      POSTGRES_PASSWORD: orders_pass
+      POSTGRES_DB: orders_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - orders_data:/var/lib/postgresql/data
+
+  postgres-payments:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: payments_user
+      POSTGRES_PASSWORD: payments_pass
+      POSTGRES_DB: payments_db
+    ports:
+      - "5436:5432"
+    volumes:
+      - payments_data:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI: http://localhost:15672 (guest/guest)
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  auth_data:
+  products_data:
+  orders_data:
+  payments_data:

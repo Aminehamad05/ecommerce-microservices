@@ -1,0 +1,19 @@
+{
+  "name": "ecommerce-backend",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "gateway",
+    "services/*",
+    "shared"
+  ],
+  "scripts": {
+    "dev:gateway": "npm run dev -w gateway",
+    "dev:auth": "npm run dev -w services/auth",
+    "dev:products": "npm run dev -w services/products",
+    "dev:orders": "npm run dev -w services/orders",
+    "dev:payments": "npm run dev -w services/payments",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  }
+}
