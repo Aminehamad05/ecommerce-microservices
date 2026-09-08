@@ -20,7 +20,7 @@ export interface EventPayloads {
 }
 
 /** Helper for publishers. */
-export const createEvent = <T extends EventType>(
+export const createEvent = <T extends keyof EventPayloads>(
   type: T,
   payload: EventPayloads[T],
   correlationId: string,

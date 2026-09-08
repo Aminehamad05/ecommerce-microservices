@@ -1,10 +1,4 @@
-export interface User {
-  id: string;
-  email: string;
-  passwordHash: string;
-  role: "customer" | "admin";
-  createdAt: Date;
-}
+import type { User } from "@prisma/client";
 
 /** Public shape — never expose passwordHash outside the service. */
 export interface PublicUser {
@@ -14,19 +8,12 @@ export interface PublicUser {
   createdAt: Date;
 }
 
-/** Row shape returned by the users table (snake_case columns). */
-export interface UserRow {
-  id: string;
-  email: string;
-  role: User["role"];
-  created_at: Date;
+/** Prisma role enum values are uppercase; JWTs use the lowercase wire format. */
+export function toRoleJwt(role: User["role"]): "customer" | "admin" {
+  return role === "ADMIN" ? "admin" : "customer";
 }
 
 export function toPublicUser(user: Pick<User, "id" | "email" | "role" | "createdAt">): PublicUser {
   const { id, email, role, createdAt } = user;
   return { id, email, role, createdAt };
-}
-
-export function rowToPublicUser(row: UserRow): PublicUser {
-  return { id: row.id, email: row.email, role: row.role, createdAt: row.created_at };
 }

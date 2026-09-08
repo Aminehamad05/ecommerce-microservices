@@ -2,8 +2,11 @@ import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import type { JwtPayload } from "@ecommerce/shared";
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) throw new Error("JWT_SECRET is not set");
+const JWT_SECRET = (() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET is not set");
+  return secret;
+})();
 
 /**
  * Verifies the JWT at the gateway; downstream services trust the
@@ -18,7 +21,12 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
 
   try {
-    req.user = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] });
+    if (typeof decoded === "string") {
+      res.status(401).json({ error: "Invalid token" });
+      return;
+    }
+    req.user = decoded as JwtPayload;
     next();
   } catch {
     res.status(401).json({ error: "Invalid token" });
