@@ -126,6 +126,7 @@ npm run dev:gateway & npm run dev:auth & npm run dev:products &
 npm run dev:orders & npm run dev:payments
 
 npm run typecheck                          # strict TS check across all workspaces
+npm test                                   # unit tests (vitest) across all workspaces
 ```
 
 RabbitMQ management UI: http://localhost:15672 (guest/guest)

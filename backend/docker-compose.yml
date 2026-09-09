@@ -14,7 +14,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: products_user
-      POSTGRES_PASSWORD: products_pass
+      POSTGRES_PASSWORD: amine2005
       POSTGRES_DB: products_db
     ports:
       - "5434:5432"

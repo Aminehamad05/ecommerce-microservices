@@ -27,7 +27,20 @@ npm run dev:orders
 npm run dev:payments
 
 npm run typecheck               # strict TS check across all workspaces
+npm test                      # unit tests (vitest) across all workspaces
 ```
+
+## Testing
+
+```bash
+npm test                      # every workspace that has tests
+npm test -w services/auth     # auth service only
+```
+
+- Auth unit tests live next to the code (`services/auth/src/**/*.test.ts`) so the strict `tsc --noEmit` check covers them too.
+- They are unit-only: Prisma, `bcrypt` and `jsonwebtoken` are mocked with `vi.mock`, so **no database or running server is needed**.
+- `services/auth/vitest.config.ts` injects a dummy `JWT_SECRET` for tests (the controller throws at import time if it is unset), keeping tests independent of any `.env` file.
+- To add tests for another service: install `vitest` as a devDependency in that workspace, copy the `vitest.config.ts` pattern, colocate `*.test.ts` files under its `src/`, and add a `"test": "vitest run"` script — the root `npm test` picks it up automatically.
 
 ## Conventions
 

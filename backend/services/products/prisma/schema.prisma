@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+
+  @@map("product_status")
+}
+
+model Category {
+  id          String     @id @default(uuid()) @db.Uuid
+  name        String     @unique
+  slug        String     @unique
+  description String?
+  imageUrl    String?    @map("image_url")
+  parentId    String?    @map("parent_id") @db.Uuid
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Category[] @relation("CategoryTree")
+  products    Product[]
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  @@map("categories")
+}
+
+model Product {
+  id             String        @id @default(uuid()) @db.Uuid
+  sku            String        @unique
+  name           String
+  slug           String        @unique
+  description    String?
+  brand          String?
+  price          Decimal       @db.Decimal(10, 2)
+  compareAtPrice Decimal?      @map("compare_at_price") @db.Decimal(10, 2)
+  currency       String        @default("USD") @db.Char(3)
+  stock          Int           @default(0)
+  status         ProductStatus @default(DRAFT)
+  isFeatured     Boolean       @default(false) @map("is_featured")
+  tags           String[]
+  // Flexible per-product data, e.g. { "color": "red", "size": "M" }
+  attributes     Json?
+  // Denormalized review aggregates (a future reviews feature updates these)
+  ratingAvg      Decimal       @default(0) @map("rating_avg") @db.Decimal(3, 2)
+  reviewCount    Int           @default(0) @map("review_count")
+  categoryId     String        @map("category_id") @db.Uuid
+  category       Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images         ProductImage[]
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@index([categoryId])
+  @@index([status])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(uuid()) @db.Uuid
+  url       String
+  altText   String?  @map("alt_text")
+  position  Int      @default(0)
+  productId String   @map("product_id") @db.Uuid
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([productId])
+  @@map("product_images")
+}
