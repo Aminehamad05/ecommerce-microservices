@@ -4,3 +4,5 @@ dist/
 coverage/
 *.log
 .DS_Store
+# Prisma clients are generated per service (postinstall) into src/generated/
+services/*/src/generated/

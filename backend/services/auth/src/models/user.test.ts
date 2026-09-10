@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { User } from "@prisma/client";
+import type { User } from "../generated/client/index.js";
 import { toPublicUser, toRoleJwt } from "./user.js";
 
 function makeDbUser(overrides: Partial<User> = {}): User {

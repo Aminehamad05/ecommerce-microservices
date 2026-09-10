@@ -1,14 +1,18 @@
 import "dotenv/config";
 import express from "express";
-import { errorHandler } from "@ecommerce/shared";
+import { corsDev, errorHandler } from "@ecommerce/shared";
+import { categoriesRouter, productsRouter } from "./routes/products.routes.js";
 
 const app = express();
+app.use(corsDev);
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "products" });
 });
-// TODO: routes
+// More specific mount first: otherwise "/products/:id" would swallow "/products/categories".
+app.use("/products/categories", categoriesRouter);
+app.use("/products", productsRouter);
 
 app.use(errorHandler);
 

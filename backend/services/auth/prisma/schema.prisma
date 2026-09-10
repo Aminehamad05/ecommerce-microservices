@@ -1,5 +1,8 @@
 generator client {
   provider = "prisma-client-js"
+  // Per-service output: every service generates its own client, otherwise
+  // services overwrite each other's client in the hoisted node_modules.
+  output   = "../src/generated/client"
 }
 
 datasource db {
