@@ -1,9 +1,18 @@
 import { Prisma } from "../generated/client/index.js";
 import { HttpError } from "@ecommerce/shared";
+import type { Request } from "express";
 import type { ZodType } from "zod";
 
-/** Validate unknown input, converting failures to a 400 HttpError. */
-export function parseBody<T>(schema: ZodType<T>, body: unknown): T {
+/** Extract the :id route param, rejecting requests without one. */
+export function requireId(req: Request): string {
+  const id = req.params.id;
+  if (!id) {
+    throw new HttpError(400, "Missing id parameter");
+  }
+  return id;
+}
+
+/** Validate unknown input, converting failures to a 400 HttpError. */export function parseBody<T>(schema: ZodType<T>, body: unknown): T {
   const result = schema.safeParse(body);
   if (!result.success) {
     const details = result.error.issues
