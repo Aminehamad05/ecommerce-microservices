@@ -1,9 +1,9 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request } from "express";
 import { HttpError } from "@ecommerce/shared";
 
 /**
  * Downstream of the gateway: JWT verification already happened there, so this
- * service trusts the forwarded x-user-id / x-user-role headers.
+ * service trusts the forwarded x-user-id header.
  */
 
 /** Every order route needs to know *whose* order it is. */
@@ -22,12 +22,4 @@ export function requireId(req: Request): string {
     throw new HttpError(400, "Missing id parameter");
   }
   return id;
-}
-
-export function requireAdmin(req: Request, _res: Response, next: NextFunction): void {
-  if (req.header("x-user-role") !== "admin") {
-    next(new HttpError(403, "Admin access required"));
-    return;
-  }
-  next();
 }

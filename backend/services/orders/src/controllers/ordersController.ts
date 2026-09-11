@@ -101,39 +101,3 @@ export async function getOrder(req: Request, res: Response, next: NextFunction):
     next(err);
   }
 }
-
-/**
- * POST /orders/:id/confirm (admin for now) — mark CONFIRMED and emit
- * order.confirmed. This is the seam the payments service will call when it
- * consumes payment.succeeded; the notification service listens downstream.
- */
-export async function confirmOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const order = await prisma.order.findUnique({
-      where: { id: requireId(req) },
-      include: orderInclude,
-    });
-    if (!order) {
-      throw new HttpError(404, "Order not found");
-    }
-    if (order.status !== "PENDING") {
-      throw new HttpError(409, `Only PENDING orders can be confirmed (current: ${order.status})`);
-    }
-
-    const confirmed = await prisma.order.update({
-      where: { id: order.id },
-      data: { status: "CONFIRMED" },
-      include: orderInclude,
-    });
-
-    await publishEvent(
-      Events.OrderConfirmed,
-      { orderId: confirmed.id, userId: confirmed.userId },
-      confirmed.correlationId,
-    );
-
-    res.json(confirmed);
-  } catch (err) {
-    next(err);
-  }
-}

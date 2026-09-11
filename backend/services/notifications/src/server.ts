@@ -20,7 +20,9 @@ app.use(errorHandler);
 const PORT = Number(process.env.PORT ?? 3005);
 
 // Start consuming before listening so no order.confirmed slips through.
-await consumeEvents(Events.OrderConfirmed, handleOrderConfirmed);
+await consumeEvents(Events.OrderConfirmed, handleOrderConfirmed, {
+  queue: "notifications.order.confirmed",
+});
 
 app.listen(PORT, () => {
   console.log(`Notifications service listening on :${PORT}`);
