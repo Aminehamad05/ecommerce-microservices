@@ -1,14 +1,16 @@
 import "dotenv/config";
 import express from "express";
-import { errorHandler } from "@ecommerce/shared";
+import { corsDev, errorHandler } from "@ecommerce/shared";
+import { ordersRouter } from "./routes/orders.routes.js";
 
 const app = express();
+app.use(corsDev);
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "orders" });
 });
-// TODO: routes
+app.use("/orders", ordersRouter);
 
 app.use(errorHandler);
 

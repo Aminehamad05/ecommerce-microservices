@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+  // Per-service output: every service generates its own client, otherwise
+  // services overwrite each other's client in the hoisted node_modules.
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  CANCELLED
+
+  @@map("order_status")
+}
+
+model Order {
+  id            String      @id @default(uuid()) @db.Uuid
+  userId        String      @map("user_id") @db.Uuid
+  status        OrderStatus @default(PENDING)
+  // Prices are stored in minor units (cents) and snapshotted at checkout —
+  // later catalog price changes must never rewrite an existing order.
+  totalCents    Int         @map("total_cents")
+  currency      String      @default("USD") @db.Char(3)
+  // Propagated on every event so one checkout can be traced across services.
+  correlationId String      @map("correlation_id")
+  items         OrderItem[]
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  orderId        String   @map("order_id") @db.Uuid
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId      String   @map("product_id") @db.Uuid
+  name           String
+  unitPriceCents Int      @map("unit_price_cents")
+  quantity       Int
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@map("order_items")
+}
