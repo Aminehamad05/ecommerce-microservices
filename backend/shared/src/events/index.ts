@@ -15,6 +15,7 @@ export type EventType = (typeof Events)[keyof typeof Events];
 export interface EventPayloads {
   [Events.UserCreated]: { userId: string; email: string };
   [Events.OrderPlaced]: { orderId: string; userId: string; totalCents: number };
+  [Events.OrderConfirmed]: { orderId: string; userId: string };
   [Events.PaymentSucceeded]: { orderId: string; paymentId: string };
   [Events.PaymentFailed]: { orderId: string; reason: string };
 }
