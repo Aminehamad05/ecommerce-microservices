@@ -27,7 +27,7 @@ export const createCategorySchema = z.object({
 
 export const updateCategorySchema = createCategorySchema.partial();
 
-export const createProductSchema = z.object({
+const productFields = {
   sku: z.string().min(1, "SKU is required").max(60),
   name: z.string().min(1, "Name is required").max(200),
   slug,
@@ -35,17 +35,29 @@ export const createProductSchema = z.object({
   brand: z.string().max(100).optional(),
   price,
   compareAtPrice: price.optional(),
-  currency: z.string().length(3).default("USD"),
-  stock: z.number().int().min(0, "Stock cannot be negative").default(0),
-  status: z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]).default("DRAFT"),
-  isFeatured: z.boolean().default(false),
-  tags: z.array(z.string().min(1).max(50)).max(30).default([]),
+  currency: z.string().length(3, "Currency must be a 3-letter code"),
+  stock: z.number().int().min(0, "Stock cannot be negative"),
+  status: z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]),
+  isFeatured: z.boolean(),
+  tags: z.array(z.string().min(1).max(50)).max(30),
   attributes: attributes.optional(),
   categoryId: z.uuid("categoryId must be a valid UUID"),
-  images: z.array(productImageInput).max(20).default([]),
+  images: z.array(productImageInput).max(20),
+};
+
+export const createProductSchema = z.object({
+  ...productFields,
+  currency: productFields.currency.default("USD"),
+  stock: productFields.stock.default(0),
+  status: productFields.status.default("DRAFT"),
+  isFeatured: productFields.isFeatured.default(false),
+  tags: productFields.tags.default([]),
+  images: productFields.images.default([]),
 });
 
-export const updateProductSchema = createProductSchema.partial();
+// Partial WITHOUT defaults: omitted fields stay absent (not default-filled),
+// so PATCH only touches what the client sent.
+export const updateProductSchema = z.object(productFields).partial();
 
 const booleanQuery = z
   .enum(["true", "false"])
