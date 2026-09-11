@@ -147,7 +147,15 @@ RabbitMQ management UI: http://localhost:15672 (guest/guest)
 | `GET /health` | — | Gateway health |
 | `POST /api/auth/register` | public | `{ email, password }` → user + JWT |
 | `POST /api/auth/login` | public | `{ email, password }` → user + JWT |
-| `/api/products/*` | Bearer JWT | Proxied to products service |
+| `GET /api/products[?page&limit&categoryId&status&featured&search]` | Bearer JWT | Product listing, `{ data, page, limit, total }` (Redis-cached, `X-Cache` header) |
+| `GET /api/products/:id` | Bearer JWT | Product detail with images + category (cached) |
+| `POST /api/products` | Bearer JWT, **admin** | Zod-validated create → `201` |
+| `PATCH /api/products/:id` | Bearer JWT, **admin** | Partial update |
+| `DELETE /api/products/:id` | Bearer JWT, **admin** | → `204` |
+| `GET /api/products/categories[/:id]` | Bearer JWT | Category list / detail (cached) |
+| `POST /api/products/categories` | Bearer JWT, **admin** | Create category → `201` |
+| `PATCH /api/products/categories/:id` | Bearer JWT, **admin** | Partial update |
+| `DELETE /api/products/categories/:id` | Bearer JWT, **admin** | → `204` (`409` if products reference it) |
 | `/api/orders/*` | Bearer JWT | Proxied to orders service |
 | `/api/payments/*` | Bearer JWT | Proxied to payments service |
 

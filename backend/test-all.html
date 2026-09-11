@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>E-commerce Test Console</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 1.5rem auto; padding: 0 1rem; }
+    section { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    h2 { margin-top: 0; font-size: 1.1rem; }
+    label { display: inline-block; margin: 0.25rem 0.5rem 0.25rem 0; }
+    input, select, textarea { padding: 0.35rem; font-size: 0.9rem; }
+    input[type=text], input[type=email], input[type=password], input[type=number] { width: 200px; }
+    button { padding: 0.35rem 0.7rem; margin: 0.2rem 0.3rem 0.2rem 0; cursor: pointer; }
+    pre { background: #f4f4f4; padding: 0.75rem; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow: auto; font-size: 0.8rem; }
+    table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+    th, td { border: 1px solid #ddd; padding: 0.3rem 0.5rem; text-align: left; }
+    tr[data-id] { cursor: pointer; }
+    tr[data-id]:hover { background: #f0f7ff; }
+    .hit { color: #fff; background: #2e7d32; border-radius: 4px; padding: 0 6px; font-size: 0.75rem; }
+    .miss { color: #fff; background: #c62828; border-radius: 4px; padding: 0 6px; font-size: 0.75rem; }
+    .row { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; align-items: center; }
+    #tokenInfo { font-size: 0.8rem; color: #444; }
+  </style>
+</head>
+<body>
+  <h1>E-commerce Test Console</h1>
+
+  <section>
+    <h2>1 · Settings &amp; Auth</h2>
+    <div class="row">
+      <label>Gateway <input id="baseUrl" type="text" value="http://localhost:3000" style="width:260px" /></label>
+    </div>
+    <div class="row">
+      <label>Email <input id="email" type="email" value="customer@shop.com" /></label>
+      <label>Password <input id="password" type="password" value="password123" /></label>
+      <button id="btnRegister">Register</button>
+      <button id="btnLogin">Login</button>
+    </div>
+    <div class="row">
+      <button id="btnAdmin">Use admin@shop.com</button>
+      <button id="btnCustomer">Use customer@shop.com</button>
+      <button id="btnLogout">Clear token</button>
+      <span id="tokenInfo">no token</span>
+    </div>
+    <div class="row">
+      <button data-health="http://localhost:3000/health">Gateway health</button>
+      <button data-health="http://localhost:3001/health">Auth health</button>
+      <button data-health="http://localhost:3002/health">Products health</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Products <span id="cacheBadge"></span></h2>
+    <div class="row">
+      <label>Search <input id="q" type="text" placeholder="phone" /></label>
+      <label>Status
+        <select id="qStatus"><option value="">any</option><option>ACTIVE</option><option>DRAFT</option><option>ARCHIVED</option></select>
+      </label>
+      <label>Featured
+        <select id="qFeatured"><option value="">any</option><option value="true">true</option><option value="false">false</option></select>
+      </label>
+      <label>Limit <input id="qLimit" type="number" value="10" min="1" max="100" style="width:70px" /></label>
+      <button id="btnList">List</button>
+      <button id="btnPrev">‹ Prev</button>
+      <button id="btnNext">Next ›</button>
+      <span id="pageInfo"></span>
+    </div>
+    <table id="tbl"><thead><tr><th>SKU</th><th>Name</th><th>Price</th><th>Stock</th><th>Status</th><th>ID</th></tr></thead><tbody></tbody></table>
+    <h3>Detail / Create / Update / Delete</h3>
+    <div class="row">
+      <label>ID <input id="pId" type="text" placeholder="uuid (click a row)" style="width:280px" /></label>
+      <button id="btnGet">Get</button>
+      <button id="btnDelete">Delete (admin)</button>
+    </div>
+    <div class="row">
+      <label>SKU <input id="pSku" type="text" value="DEMO-001" /></label>
+      <label>Name <input id="pName" type="text" value="Demo product" /></label>
+      <label>Slug <input id="pSlug" type="text" value="demo-product" /></label>
+      <label>Price <input id="pPrice" type="number" value="49.99" step="0.01" style="width:90px" /></label>
+    </div>
+    <div class="row">
+      <label>Category ID <input id="pCat" type="text" placeholder="from §3" style="width:280px" /></label>
+      <label>Stock <input id="pStock" type="number" value="10" style="width:70px" /></label>
+      <button id="btnCreate">Create (admin)</button>
+      <button id="btnSetStock">Set stock (admin)</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · Categories</h2>
+    <div class="row">
+      <button id="btnCatList">List</button>
+      <label>Name <input id="cName" type="text" value="Demo cat" /></label>
+      <label>Slug <input id="cSlug" type="text" value="demo-cat" /></label>
+      <button id="btnCatCreate">Create (admin)</button>
+    </div>
+    <div class="row">
+      <label>ID <input id="cId" type="text" placeholder="uuid" style="width:280px" /></label>
+      <button id="btnCatGet">Get</button>
+      <button id="btnCatDelete">Delete (admin)</button>
+    </div>
+    <table id="tblCat"><thead><tr><th>Name</th><th>Slug</th><th>Products</th><th>ID</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section>
+    <h2>Log</h2>
+    <pre id="out">—</pre>
+  </section>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const out = $("out");
+    let page = 1;
+
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const base = () => $("baseUrl").value.replace(/\/+$/, "");
+    const token = {
+      get: () => localStorage.getItem("jwt") || "",
+      set: (t) => { t ? localStorage.setItem("jwt", t) : localStorage.removeItem("jwt"); showToken(); },
+    };
+
+    function showToken() {
+      const t = token.get();
+      if (!t) { $("tokenInfo").textContent = "no token"; return; }
+      try {
+        const p = JSON.parse(atob(t.split(".")[1]));
+        $("tokenInfo").textContent = `token: ${p.email} (${p.role})`;
+      } catch { $("tokenInfo").textContent = "token: (undecodable)"; }
+    }
+
+    function log(method, url, status, cache, body) {
+      const badge = cache ? ` [cache:${cache}]` : "";
+      out.textContent = `${method} ${url}\nStatus: ${status}${badge}\n` +
+        (typeof body === "string" ? body : JSON.stringify(body, null, 2));
+      $("cacheBadge").innerHTML = cache
+        ? (cache === "HIT" ? '<span class="hit">HIT</span>' : '<span class="miss">MISS</span>')
+        : "";
+    }
+
+    async function api(path, { method = "GET", body, auth = false } = {}) {
+      const url = path.startsWith("http") ? path : base() + path;
+      const headers = {};
+      if (body !== undefined) headers["Content-Type"] = "application/json";
+      if (auth && token.get()) headers["Authorization"] = "Bearer " + token.get();
+      out.textContent = `${method} ${url}\n…`;
+      try {
+        const res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+        const text = await res.text();
+        let data; try { data = JSON.parse(text); } catch { data = text; }
+        if (data && data.token) token.set(data.token);
+        log(method, url, res.status, res.headers.get("X-Cache"), data);
+        return { status: res.status, data };
+      } catch (e) {
+        out.textContent = `Fetch failed (service down or CORS?):\n${e}`;
+        return { status: 0, data: null };
+      }
+    }
+
+    // --- auth ---
+    $("btnRegister").onclick = () => api("/api/auth/register", { method: "POST", body: { email: $("email").value.trim(), password: $("password").value } });
+    $("btnLogin").onclick = () => api("/api/auth/login", { method: "POST", body: { email: $("email").value.trim(), password: $("password").value } });
+    $("btnAdmin").onclick = () => { $("email").value = "admin@shop.com"; $("btnLogin").click(); };
+    $("btnCustomer").onclick = () => { $("email").value = "customer@shop.com"; $("btnLogin").click(); };
+    $("btnLogout").onclick = () => token.set("");
+    document.querySelectorAll("[data-health]").forEach((b) => { b.onclick = () => api(b.dataset.health); });
+
+    // --- products ---
+    function listQuery() {
+      const q = { page, limit: Number($("qLimit").value) || 10 };
+      if ($("q").value.trim()) q.search = $("q").value.trim();
+      if ($("qStatus").value) q.status = $("qStatus").value;
+      if ($("qFeatured").value) q.featured = $("qFeatured").value;
+      return "?" + new URLSearchParams(q).toString();
+    }
+    async function list() {
+      const { data } = await api("/api/products" + listQuery(), { auth: true });
+      const tb = $("tbl").querySelector("tbody");
+      tb.innerHTML = "";
+      if (!data || !data.data) return;
+      $("pageInfo").textContent = `page ${data.page} · total ${data.total}`;
+      for (const p of data.data) {
+        const tr = document.createElement("tr");
+        tr.dataset.id = p.id;
+        tr.innerHTML = `<td>${esc(p.sku)}</td><td>${esc(p.name)}</td><td>${esc(p.price)}</td><td>${esc(p.stock)}</td><td>${esc(p.status)}</td><td>${esc(p.id.slice(0, 8))}…</td>`;
+        tr.onclick = () => { $("pId").value = p.id; $("btnGet").click(); };
+        tb.appendChild(tr);
+      }
+    }
+    $("btnList").onclick = () => { page = 1; list(); };
+    $("btnPrev").onclick = () => { if (page > 1) page--; list(); };
+    $("btnNext").onclick = () => { page++; list(); };
+    $("btnGet").onclick = () => $("pId").value && api(`/api/products/${$("pId").value}`, { auth: true });
+    $("btnDelete").onclick = async () => {
+      if (!$("pId").value || !confirm("Delete product?")) return;
+      await api(`/api/products/${$("pId").value}`, { method: "DELETE", auth: true });
+      list();
+    };
+    $("btnCreate").onclick = async () => {
+      const { data } = await api("/api/products", { method: "POST", auth: true, body: {
+        sku: $("pSku").value.trim(), name: $("pName").value.trim(), slug: $("pSlug").value.trim(),
+        price: Number($("pPrice").value), stock: Number($("pStock").value), categoryId: $("pCat").value.trim() || undefined,
+      }});
+      if (data && data.id) { $("pId").value = data.id; list(); }
+    };
+    $("btnSetStock").onclick = async () => {
+      if (!$("pId").value) return;
+      await api(`/api/products/${$("pId").value}`, { method: "PATCH", auth: true, body: { stock: Number($("pStock").value) } });
+      list();
+    };
+
+    // --- categories ---
+    $("btnCatList").onclick = async () => {
+      const { data } = await api("/api/products/categories", { auth: true });
+      const tb = $("tblCat").querySelector("tbody");
+      tb.innerHTML = "";
+      if (!Array.isArray(data)) return;
+      for (const c of data) {
+        const tr = document.createElement("tr");
+        tr.dataset.id = c.id;
+        tr.innerHTML = `<td>${esc(c.name)}</td><td>${esc(c.slug)}</td><td>${esc(c._count ? c._count.products : "")}</td><td>${esc(c.id.slice(0, 8))}…</td>`;
+        tr.onclick = () => { $("cId").value = c.id; if (! $("pCat").value) $("pCat").value = c.id; $("btnCatGet").click(); };
+        tb.appendChild(tr);
+      }
+    };
+    $("btnCatCreate").onclick = async () => {
+      const { data } = await api("/api/products/categories", { method: "POST", auth: true,
+        body: { name: $("cName").value.trim(), slug: $("cSlug").value.trim() } });
+      if (data && data.id) { $("cId").value = data.id; $("pCat").value = data.id; $("btnCatList").click(); }
+    };
+    $("btnCatGet").onclick = () => $("cId").value && api(`/api/products/categories/${$("cId").value}`, { auth: true });
+    $("btnCatDelete").onclick = async () => {
+      if (!$("cId").value || !confirm("Delete category?")) return;
+      await api(`/api/products/categories/${$("cId").value}`, { method: "DELETE", auth: true });
+      $("btnCatList").click();
+    };
+
+    showToken();
+  </script>
+</body>
+</html>
