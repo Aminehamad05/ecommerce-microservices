@@ -32,9 +32,10 @@ ecommerce/
     ├── shared/              # @ecommerce/shared — types, error handler, event registry
     └── services/
         ├── auth/            # :3001 — users, login, JWT issuing (auth_db :5433, Prisma ORM)
-        ├── products/        # :3002 — catalog, categories, search (products_db :5434)
-        ├── orders/          # :3003 — cart checkout, order lifecycle (orders_db :5435)
-        └── payments/        # :3004 — payment processing, idempotent (payments_db :5436)
+        ├── products/        # :3002 — catalog CRUD, categories, Redis cache (products_db :5434)
+        ├── orders/          # :3003 — checkout, event-driven confirm (orders_db :5435)
+        ├── notifications/   # :3005 — order.confirmed listener, in-app inbox (scaffold, not running)
+        └── payments/        # :3004 — TODO: consumes order.placed, publishes payment.succeeded (Stripe)
 ```
 
 Infra: PostgreSQL (one DB per service), RabbitMQ (5672, UI :15672), Redis (6379) — all via `docker compose up -d`.
@@ -71,13 +72,13 @@ Client ──► Gateway :3000 ──► /api/auth/*      ──► auth      :3
 
 ### Event flow (async, RabbitMQ)
 
-Events are published as typed domain events. Names and payloads are compile-time checked against the `Events` const + `EventPayloads` registry in `@ecommerce/shared` (`shared/src/events/index.ts`), and every event carries a `correlationId` propagated across services.
+Events are published as typed domain events. Names and payloads are compile-time checked against the `Events` const + `EventPayloads` registry in `@ecommerce/shared` (`shared/src/events/index.ts`), and every event carries a `correlationId` propagated across services. Transport is one durable topic exchange (`ecommerce.events`), routing key = event name; each consumer owns a durable queue (`orders.payment.succeeded`, …) so events fan out.
 
 ```
 auth     ──publish──► user.created
-orders   ──publish──► order.placed      ──► payments consumes → processes payment
-payments ──publish──► payment.succeeded ──► orders consumes   → confirm order
-payments ──publish──► payment.failed    ──► orders consumes   → mark order failed
+orders   ──publish──► order.placed      ──► payments consumes → processes payment (TODO)
+payments ──publish──► payment.succeeded ──► orders consumes   → confirm order (TODO)
+orders   ──publish──► order.confirmed   ──► notifications consumes → in-app inbox (scaffold)
 ```
 
 Why events instead of REST here:
@@ -131,6 +132,35 @@ npm test                                   # unit tests (vitest) across all work
 
 RabbitMQ management UI: http://localhost:15672 (guest/guest)
 
+## Testing & CI
+
+75 unit tests (auth 12, orders 22, products 41), colocated with the code and runnable with zero infrastructure — every test mocks its I/O (Prisma, HTTP, Redis, RabbitMQ), so CI needs Node 20+ and nothing else (no databases, no running services).
+
+```bash
+cd backend
+npm ci                  # reproducible install from package-lock.json
+npm run typecheck       # strict TS across all workspaces
+npm test                # vitest across all workspaces (auth + orders + products)
+npm test -w services/orders   # single service, e.g. for a scoped pipeline step
+```
+
+Jenkins declarative example:
+
+```groovy
+pipeline {
+  agent any
+  tools { nodejs 'node-20' }
+  stages {
+    stage('Install')   { steps { dir('backend') { sh 'npm ci' } } }
+    stage('Typecheck') { steps { dir('backend') { sh 'npm run typecheck' } } }
+    stage('Unit tests') { steps { dir('backend') { sh 'npm test' } } }
+    // later stages: build images, push, deploy to Kubernetes
+  }
+}
+```
+
+See [backend/README.md](backend/README.md) for the per-service testing conventions new tests must follow to stay CI-safe.
+
 ## Conventions
 
 - **TypeScript strict everywhere**, ESM only (`"type": "module"`), NodeNext resolution (`.js` extension in relative imports)
@@ -156,7 +186,9 @@ RabbitMQ management UI: http://localhost:15672 (guest/guest)
 | `POST /api/products/categories` | Bearer JWT, **admin** | Create category → `201` |
 | `PATCH /api/products/categories/:id` | Bearer JWT, **admin** | Partial update |
 | `DELETE /api/products/categories/:id` | Bearer JWT, **admin** | → `204` (`409` if products reference it) |
-| `/api/orders/*` | Bearer JWT | Proxied to orders service |
-| `/api/payments/*` | Bearer JWT | Proxied to payments service |
+| `POST /api/orders/checkout` | Bearer JWT | `{ items: [{ productId, quantity }] }` → `PENDING` order + `order.placed` event |
+| `GET /api/orders` | Bearer JWT | Caller's orders only |
+| `GET /api/orders/:id` | Bearer JWT | `404` unless owned by the caller |
+| `/api/payments/*` | Bearer JWT | Proxied to payments service (TODO) |
 
 See [backend/README.md](backend/README.md) for full service documentation.
