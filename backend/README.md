@@ -46,6 +46,34 @@ npm test -w services/orders   # orders service only
 - `services/auth/vitest.config.ts` injects a dummy `JWT_SECRET` for tests (the controller throws at import time if it is unset), keeping tests independent of any `.env` file.
 - Products tests (`services/products/src/**/*.test.ts`) follow the same pattern: Zod schemas, controller helpers, `requireAdmin`, and both CRUD controllers with Prisma **and** the Redis cache layer mocked — 41 tests, runnable in CI with zero infra.
 - Orders tests (`services/orders/src/**/*.test.ts`) mock Prisma, the products HTTP API (`fetch` stubbed) and the RabbitMQ bus — 22 tests covering checkout totals/publishing, ownership scoping, idempotent confirm and all failure mappings. Notifications has no unit tests yet.
+
+## Running tests in CI
+
+Prerequisites: Node 20+, no databases, no running services — every test mocks its I/O (Prisma, `fetch`, Redis, RabbitMQ), so the suite is hermetic. `npm ci` triggers each Prisma workspace's `postinstall` (`prisma generate`), which needs no DB connection.
+
+```bash
+cd backend
+npm ci                  # reproducible install from package-lock.json
+npm run typecheck       # strict TS across all workspaces (non-zero exit on error)
+npm test                # vitest across all workspaces (non-zero exit on failure)
+```
+
+Jenkins declarative example (test stage needs no Docker/infra agents):
+
+```groovy
+pipeline {
+  agent any
+  tools { nodejs 'node-20' }
+  stages {
+    stage('Install')   { steps { dir('backend') { sh 'npm ci' } } }
+    stage('Typecheck') { steps { dir('backend') { sh 'npm run typecheck' } } }
+    stage('Unit tests') { steps { dir('backend') { sh 'npm test' } } }
+    // later stages: build images, push, deploy to Kubernetes
+  }
+}
+```
+
+Conventions for new tests: colocate `*.test.ts` under the service's `src/` (strict typecheck covers them), mock at the boundary (DB client, HTTP, cache, bus — never spin up real infra), and add `"test": "vitest run"` so root `npm test` picks the workspace up with no further wiring.
 - Manual end-to-end console: open `backend/test-all.html` in a browser (health, auth, products, categories, cache HIT/MISS badges).
 - Seed demo catalog: `npm run db:seed -w services/products` (12 categories, 72 products, 143 images; TRUNCATEs catalog tables first).
 - To add tests for another service: install `vitest` as a devDependency in that workspace, copy the `vitest.config.ts` pattern, colocate `*.test.ts` files under its `src/`, and add a `"test": "vitest run"` script — the root `npm test` picks it up automatically.
