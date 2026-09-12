@@ -7,6 +7,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
@@ -27,7 +28,8 @@
     "@types/pg": "^8.11.6",
     "prisma": "^6.19.3",
     "tsx": "^4.11.0",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.11"
   },
   "prisma": {
     "schema": "prisma/schema.prisma"
