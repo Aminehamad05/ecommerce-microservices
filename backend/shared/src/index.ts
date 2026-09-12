@@ -1,6 +1,8 @@
 export { errorHandler } from "./middleware/errorHandler.js";
 export { corsDev } from "./middleware/cors.js";
 export { Events, createEvent } from "./events/index.js";
+export { publishEvent, consumeEvents, EVENTS_EXCHANGE } from "./lib/bus.js";
+export type { ConsumeOptions } from "./lib/bus.js";
 export type { EventType, EventPayloads } from "./events/index.js";
 export type { AuthUser, JwtPayload, DomainEvent } from "./types.js";
 export { HttpError } from "./types.js";
