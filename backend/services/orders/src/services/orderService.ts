@@ -42,3 +42,33 @@ export async function confirmOrderById(orderId: string): Promise<OrderWithItems>
 
   return confirmed;
 }
+
+/**
+ * Internal-only failure marking. Called solely by the payment.failed
+ * consumer — the payments service already released the held stock before
+ * publishing, so this only moves order state.
+ *
+ * Idempotent: already-FAILED is a no-op success; already-CONFIRMED stays
+ * confirmed (a late failure can never un-confirm a paid order).
+ */
+export async function failOrderById(orderId: string): Promise<OrderWithItems> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: true },
+  });
+  if (!order) {
+    throw new HttpError(404, "Order not found");
+  }
+  if (order.status === "FAILED" || order.status === "CONFIRMED") {
+    return order;
+  }
+  if (order.status !== "PENDING") {
+    throw new HttpError(409, `Only PENDING orders can fail (current: ${order.status})`);
+  }
+
+  return prisma.order.update({
+    where: { id: order.id },
+    data: { status: "FAILED" },
+    include: { items: true },
+  });
+}

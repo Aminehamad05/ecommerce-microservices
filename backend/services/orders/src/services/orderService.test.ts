@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Events, HttpError, publishEvent } from "@ecommerce/shared";
 import { prisma } from "../models/db.js";
-import { confirmOrderById } from "./orderService.js";
+import { confirmOrderById, failOrderById } from "./orderService.js";
 
 vi.mock("../models/db.js", () => ({
   prisma: {
@@ -86,5 +86,47 @@ describe("confirmOrderById", () => {
     expect((err as HttpError).status).toBe(409);
     expect(update).not.toHaveBeenCalled();
     expect(publishEventMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("failOrderById", () => {
+  it("marks a PENDING order FAILED without publishing", async () => {
+    findUnique.mockResolvedValue(pendingOrder);
+    update.mockResolvedValue({ ...pendingOrder, status: "FAILED" as const });
+
+    const failed = await failOrderById(pendingOrder.id);
+
+    expect(failed.status).toBe("FAILED");
+    expect(update).toHaveBeenCalledWith({
+      where: { id: pendingOrder.id },
+      data: { status: "FAILED" },
+      include: { items: true },
+    });
+    expect(publishEventMock).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op success for already-FAILED orders", async () => {
+    findUnique.mockResolvedValue({ ...pendingOrder, status: "FAILED" as const });
+
+    const result = await failOrderById(pendingOrder.id);
+
+    expect(result.status).toBe("FAILED");
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("never un-confirms an already-CONFIRMED order", async () => {
+    findUnique.mockResolvedValue({ ...pendingOrder, status: "CONFIRMED" as const });
+
+    const result = await failOrderById(pendingOrder.id);
+
+    expect(result.status).toBe("CONFIRMED");
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("throws 404 for unknown orders", async () => {
+    findUnique.mockResolvedValue(null);
+
+    await expect(failOrderById("missing")).rejects.toMatchObject({ status: 404 });
+    expect(update).not.toHaveBeenCalled();
   });
 });

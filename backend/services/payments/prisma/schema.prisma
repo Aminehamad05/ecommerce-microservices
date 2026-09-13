@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+  // Per-service output: every service generates its own client, otherwise
+  // services overwrite each other's client in the hoisted node_modules.
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// One row per order that reached the payments service. orderId is unique so
+// retried create-intent calls (and the order.placed consumer) can never mint
+// a second PaymentIntent for the same order.
+model Payment {
+  id                   String   @id @default(uuid()) @db.Uuid
+  orderId              String   @unique @map("order_id") @db.Uuid
+  userId               String   @map("user_id") @db.Uuid
+  stripePaymentIntentId String  @unique @map("stripe_payment_intent_id")
+  amount               Int
+  currency             String   @db.Char(3)
+  status               String
+  correlationId        String   @map("correlation_id")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("payments")
+}
+
+// Stripe redelivers webhooks: the event.id primary key makes replays a
+// no-op instead of a double charge / double publish.
+model WebhookEvent {
+  id          String   @id
+  type        String
+  processedAt DateTime @default(now()) @map("processed_at")
+
+  @@map("webhook_events")
+}

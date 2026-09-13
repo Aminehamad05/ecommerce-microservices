@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { Events, consumeEvents, corsDev, errorHandler } from "@ecommerce/shared";
 import { handlePaymentSucceeded } from "./listeners/paymentSucceeded.js";
+import { handlePaymentFailed } from "./listeners/paymentFailed.js";
 import { ordersRouter } from "./routes/orders.routes.js";
 
 const app = express();
@@ -17,9 +18,12 @@ app.use(errorHandler);
 
 const PORT = Number(process.env.PORT ?? 3003);
 
-// Subscribe before listening so no payment.succeeded slips through.
+// Subscribe before listening so no payment.* event slips through.
 await consumeEvents(Events.PaymentSucceeded, handlePaymentSucceeded, {
   queue: "orders.payment.succeeded",
+});
+await consumeEvents(Events.PaymentFailed, handlePaymentFailed, {
+  queue: "orders.payment.failed",
 });
 
 app.listen(PORT, () => {

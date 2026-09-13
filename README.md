@@ -35,7 +35,7 @@ ecommerce/
         ├── products/        # :3002 — catalog CRUD, categories, Redis cache (products_db :5434)
         ├── orders/          # :3003 — checkout, event-driven confirm (orders_db :5435)
         ├── notifications/   # :3005 — order.confirmed listener, in-app inbox (scaffold, not running)
-        └── payments/        # :3004 — TODO: consumes order.placed, publishes payment.succeeded (Stripe)
+        └── payments/        # :3004 — Stripe intents + webhooks, reserves stock before charging
 ```
 
 Infra: PostgreSQL (one DB per service), RabbitMQ (5672, UI :15672), Redis (6379) — all via `docker compose up -d`.
@@ -134,7 +134,7 @@ RabbitMQ management UI: http://localhost:15672 (guest/guest)
 
 ## Testing & CI
 
-75 unit tests (auth 12, orders 22, products 41), colocated with the code and runnable with zero infrastructure — every test mocks its I/O (Prisma, HTTP, Redis, RabbitMQ), so CI needs Node 20+ and nothing else (no databases, no running services).
+94 unit tests (auth 12, orders 26, payments 10, products 46), colocated with the code and runnable with zero infrastructure — every test mocks its I/O (Prisma, HTTP, Redis, RabbitMQ, Stripe), so CI needs Node 20+ and nothing else (no databases, no running services).
 
 ```bash
 cd backend
@@ -189,6 +189,9 @@ See [backend/README.md](backend/README.md) for the per-service testing conventio
 | `POST /api/orders/checkout` | Bearer JWT | `{ items: [{ productId, quantity }] }` → `PENDING` order + `order.placed` event |
 | `GET /api/orders` | Bearer JWT | Caller's orders only |
 | `GET /api/orders/:id` | Bearer JWT | `404` unless owned by the caller |
-| `/api/payments/*` | Bearer JWT | Proxied to payments service (TODO) |
+| `POST /api/payments/create-intent` | Bearer JWT | `{ orderId }` → Stripe `clientSecret` (stock reserved first, amount re-read server-side) |
+| `GET /api/payments/order/:orderId` | Bearer JWT | Caller's payment state for an order |
+| `POST /products/:id/reserve` | Bearer JWT | Service-to-service stock hold, atomic (`409` when gone) |
+| `POST /products/:id/release` | Bearer JWT | Give held stock back |
 
 See [backend/README.md](backend/README.md) for full service documentation.

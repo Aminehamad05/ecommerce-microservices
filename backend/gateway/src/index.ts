@@ -40,7 +40,7 @@ app.use("/api/auth", proxy(AUTH_SERVICE_URL, "/auth"));
 // protected
 app.use("/api/products", requireAuth, proxy(PRODUCTS_SERVICE_URL, "/products"));
 app.use("/api/orders", requireAuth, proxy(ORDERS_SERVICE_URL, "/orders"));
-app.use("/api/payments", requireAuth, proxy(PAYMENTS_SERVICE_URL));
+app.use("/api/payments", requireAuth, proxy(PAYMENTS_SERVICE_URL, "/payments"));
 
 const PORT = Number(process.env.PORT ?? 3000);
 app.listen(PORT, () => {

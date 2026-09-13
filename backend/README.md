@@ -44,8 +44,9 @@ npm test -w services/orders   # orders service only
 - Auth unit tests live next to the code (`services/auth/src/**/*.test.ts`) so the strict `tsc --noEmit` check covers them too.
 - They are unit-only: Prisma, `bcrypt` and `jsonwebtoken` are mocked with `vi.mock`, so **no database or running server is needed**.
 - `services/auth/vitest.config.ts` injects a dummy `JWT_SECRET` for tests (the controller throws at import time if it is unset), keeping tests independent of any `.env` file.
-- Products tests (`services/products/src/**/*.test.ts`) follow the same pattern: Zod schemas, controller helpers, `requireAdmin`, and both CRUD controllers with Prisma **and** the Redis cache layer mocked — 41 tests, runnable in CI with zero infra.
-- Orders tests (`services/orders/src/**/*.test.ts`) mock Prisma, the products HTTP API (`fetch` stubbed) and the RabbitMQ bus — 22 tests covering checkout totals/publishing, ownership scoping, idempotent confirm and all failure mappings. Notifications has no unit tests yet.
+- Products tests (`services/products/src/**/*.test.ts`) follow the same pattern: Zod schemas, controller helpers, `requireAdmin`, both CRUD controllers, atomic stock reservation, with Prisma **and** the Redis cache layer mocked — 46 tests, runnable in CI with zero infra.
+- Orders tests (`services/orders/src/**/*.test.ts`) mock Prisma, the products HTTP API (`fetch` stubbed) and the RabbitMQ bus — 26 tests covering checkout totals/publishing, ownership scoping, idempotent confirm/fail and all failure mappings.
+- Payments tests (`services/payments/src/**/*.test.ts`) mock Prisma, Stripe, `fetch` and the bus — 10 tests covering reserve-before-charge ordering, server-side amount validation, webhook dedup and idempotent succeed/fail handling. Notifications has no unit tests yet.
 
 ## Running tests in CI
 
@@ -109,7 +110,28 @@ Direct base URL `http://localhost:3003`, via gateway (`http://localhost:3000/api
 | `GET /orders` | own JWT | Caller's orders only, newest first |
 | `GET /orders/:id` | own JWT | `404` unless the order belongs to the caller |
 
-There is deliberately **no confirm route**: an order becomes `CONFIRMED` only inside the `payment.succeeded` consumer (`confirmOrderById`), never via HTTP — no manual/admin confirmation path exists.
+There is deliberately **no confirm route**: an order becomes `CONFIRMED` only inside the `payment.succeeded` consumer (`confirmOrderById`), never via HTTP — no manual/admin confirmation path exists. A `payment.failed` event moves `PENDING` → `FAILED` (`failOrderById`); a late failure can never un-confirm a paid order.
+
+## Payments API
+
+Direct base URL `http://localhost:3004`, via gateway (`http://localhost:3000/api/payments…`, Bearer JWT required there; user identity comes from the forwarded `x-user-id` header). Stripe calls `POST /webhooks/stripe` directly (public URL, trust via Stripe signature — never via the gateway, which would break signature verification).
+
+| Method & path | Access | Notes |
+|---|---|---|
+| `POST /payments/create-intent` | own JWT | `{ orderId }` → reserves stock first, then creates a Stripe PaymentIntent (idempotency key `create-intent-{orderId}`) → `201 { paymentId, clientSecret, … }`. Amount re-read from orders service, never trusted from the client. `409` when stock is gone or the order isn't `PENDING` |
+| `GET /payments/order/:orderId` | own JWT | Caller's payment state for an order |
+| `POST /webhooks/stripe` | Stripe signature | Raw-body verified, deduped by Stripe `event.id` → `payment.succeeded` / `payment.failed` events; failed payments release their held stock |
+
+## Stock reservation (products API, service-to-service)
+
+| Method & path | Notes |
+|---|---|
+| `POST /products/stock/reserve` | `{ items: [{ productId, quantity }] }` — all-or-nothing batch hold |
+| `POST /products/stock/release` | `{ items }` — give held stock back |
+| `POST /products/:id/reserve` | `{ quantity }` — single-product hold |
+| `POST /products/:id/release` | `{ quantity }` — single-product release |
+
+Holds are a single atomic `UPDATE … WHERE stock >= quantity`: two concurrent checkouts racing for the last unit cannot both succeed — the loser gets `409` and no charge is ever created for stock we don't hold.
 
 ## Events (RabbitMQ)
 
@@ -118,8 +140,9 @@ Transport: `publishEvent` / `consumeEvents` from `@ecommerce/shared` (`shared/sr
 Current flow:
 
 ```
-checkout ──publish──► order.placed ──► (payments, future)
+checkout ──publish──► order.placed ──► payments consumes (logs; intent created on demand)
 payment.succeeded ──► orders consumes → CONFIRMED ──publish──► order.confirmed ──► notifications consumes → in-app inbox
+payment.failed ──► orders consumes → FAILED (payments already released the held stock)
 ```
 
 Rules: publish only after the DB write commits; consumers are idempotent (`CONFIRMED` replay = no-op success, no duplicate publish); manual ack, failures are dropped + logged (no requeue — poison messages must not loop); every handler logs order/payment/correlation ids so one checkout is traceable across services. After topology changes, check the broker bindings — hot-reload can leave stale bindings behind.
@@ -168,5 +191,5 @@ backend/
     ├── products/       # catalog CRUD (Zod), categories, Redis cache
     ├── orders/         # checkout, event-driven confirm (payment.succeeded → order.confirmed)
     ├── notifications/  # order.confirmed listener, in-app inbox (scaffold, not running)
-    └── payments/       # TODO — consumes order.placed, publishes payment.succeeded (Stripe)
+    └── payments/       # Stripe intents + webhooks, reserves stock before charging
 ```
